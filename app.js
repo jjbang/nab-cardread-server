@@ -21,7 +21,9 @@ const morganMiddleware = require("./middlewares/morganMiddleware");
 const logger = require("./lib/logger");
 
 const app = express();
-const httpServer = http.createServer(app);
+
+// Create separate HTTP server for Socket.IO on port 4014
+const socketHttpServer = http.createServer();
 
 // Configure allowed origins for Socket.IO
 const allowedOrigins = [
@@ -38,7 +40,7 @@ if (process.env.PRODUCTION_DOMAIN) {
   allowedOrigins.push(`http://${process.env.PRODUCTION_DOMAIN.replace(/^https?:\/\//, '')}`);
 }
 
-const io = new Server(httpServer, {
+const io = new Server(socketHttpServer, {
   cors: {
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl requests)
@@ -109,12 +111,12 @@ app.post("/temp/cardread", async (req, res) => {
 });
 
 // Socket.IO server on port 4014
-const socketServer = httpServer.listen(4014, () => {
+const socketServer = socketHttpServer.listen(4014, () => {
   logger.debug(`Socket.IO server is running on port 4014`);
 });
 
 // Main Express app
-app.listen(app.get("port"), () => {
+const mainServer = app.listen(app.get("port"), () => {
   logger.debug(`App is running at http://localhost:${app.get("port")}`);
   logger.debug("Press CTRL-C to stop\n");
 });
@@ -122,6 +124,9 @@ app.listen(app.get("port"), () => {
 // Graceful shutdown
 process.on("SIGTERM", () => {
   logger.debug("SIGTERM signal received: closing HTTP servers");
+  mainServer.close(() => {
+    logger.debug("Main Express server closed");
+  });
   socketServer.close(() => {
     logger.debug("Socket.IO server closed");
   });
@@ -132,6 +137,9 @@ process.on("SIGTERM", () => {
 
 process.on("SIGINT", () => {
   logger.debug("SIGINT signal received: closing HTTP servers");
+  mainServer.close(() => {
+    logger.debug("Main Express server closed");
+  });
   socketServer.close(() => {
     logger.debug("Socket.IO server closed");
   });
