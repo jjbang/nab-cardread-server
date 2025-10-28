@@ -22,11 +22,40 @@ const logger = require("./lib/logger");
 
 const app = express();
 const httpServer = http.createServer(app);
+
+// Configure allowed origins for Socket.IO
+const allowedOrigins = [
+  "http://localhost:4030",
+  "http://localhost:5173", // Vite dev server
+  "http://127.0.0.1:4030",
+  "http://127.0.0.1:5173"
+];
+
+// Add production domain if set in environment
+if (process.env.PRODUCTION_DOMAIN) {
+  allowedOrigins.push(process.env.PRODUCTION_DOMAIN);
+  allowedOrigins.push(`https://${process.env.PRODUCTION_DOMAIN.replace(/^https?:\/\//, '')}`);
+  allowedOrigins.push(`http://${process.env.PRODUCTION_DOMAIN.replace(/^https?:\/\//, '')}`);
+}
+
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        logger.warn(`CORS blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ["GET", "POST"],
+    credentials: true,
+    allowedHeaders: ["Content-Type"]
+  },
+  allowEIO3: true // Allow Engine.IO v3 clients to connect
 });
 
 app.set("port", process.env.SERVER_PORT || 4030);
