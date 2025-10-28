@@ -5,8 +5,10 @@ function App() {
   const [cardNumber, setCardNumber] = useState('')
 
   useEffect(() => {
-    // Use relative URL in production, localhost in development
-    const socketUrl = import.meta.env.PROD ? window.location.origin : 'http://localhost:4014'
+    // Always use port 4014 for Socket.IO
+    const hostname = window.location.hostname
+    const protocol = window.location.protocol
+    const socketUrl = `${protocol}//${hostname}:4014`
     const socket = io(socketUrl)
 
     socket.on('connect', () => {
